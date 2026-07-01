@@ -47,24 +47,27 @@ We require a unique idempotency key for incoming requests. If the key already ex
 **Indexing strategy**<br>
 For more information use this [link](sql/postgresql/manual/V3__Create_partition_index.sql)
 
-for the 2 first indexes, I will use it for the reporting query.
+For the 2 first indexes, I will use it for the reporting query.
 For the last index, It will help me to get balance of an account at a specific time
 
 ## 2) Query & performance
 As you can see, I use different design with yours. So that I will anwser this question in 2 case.
 
-1.Follow your design:
-I will create an index that contains the status and created_at columns and also includes the wallet_id, currency, amount columns. I also use partition by year. If we have any rule that only use recent time, I will split the partition by month in current year, and year for old year. And If we go to next year, I will merge 12-month partitions into 1 year partition, and split new year into 12 month partitions
+**1.Follow your design:**<br>
+To optimize the provided reporting query within PostgreSQL, I would implement:
 
-With above plan, the query will use the index scan only instead of sequential scan or Bitmap Heap Scan. That make system read a lot of blocks. Then with the year partition, it can help to prune other blocks that do not match the conditions. However, this plan will cost more space in disk and ram, because this plan will create a copy of the table and it also create additional burden when we insert or update the status column.
+**- Covering Indexes:** I created an index on (status, created_at) and included wallet_id, currency, amount using the INCLUDE clause. This allows for an Index-Only Scan, preventing costly heap lookups.<br>
+**- Tiered Partitioning:** I use a hybrid partitioning strategy: monthly partitions for the current year to handle hot data and yearly partitions for historical data. This facilitates partition pruning and improves maintenance efficiency (e.g., easier data archiving/dropping).<br>
+**- Trade-off:** This increases disk I/O during writes due to index maintenance and storage overhead, but it is necessary for maintaining low-latency reporting.<br>
 
-2.My new design
-I combine the partition and index too (the reporting query). So mostly the explaination is same as the above case. However, In my design, we need a joining step. And that may cause a performance issue.
+**2.My new design**<br>
+Given the "double-entry" nature of our ledger and the high frequency of status updates, I recommend decoupling reporting from operational traffic to prevent resource contention.
 
-So to overcome it, I scrutinize our context and realize some issues:
-- The transactions table is used for operation and reporting activities in parallel. That make it slow
-- Because of double-entry ledger pattern, when we update the status from "PENDING" to "SETTLED", it would change not only the table, but also the index table dramatically
-- Duplicated status value
+My proposal is to use ClickHouse as an OLAP engine.
+
+**- Mechanism:** I will use Debezium CDC to capture changes from the PostgreSQL Write-Ahead Log (WAL), stream them through Apache Kafka, and ingest them into ClickHouse using PySpark or the ClickHouse Kafka engine.<br>
+
+**- Benefit:** This offloads the reporting query to a column-oriented database specifically designed for analytical workloads, ensuring that heavy aggregations do not affect the throughput of the primary payment gateway.<br>
 
 So that, I recommend we decouple reporting and opration activities, using clickhouse for the reporting.
 So this is my design:
@@ -72,12 +75,12 @@ So this is my design:
 you can see [hear](docs/new_design_mermaid.js) or copy the code and paste to https://mermaid.ai/live
 
 ## 3) Zero-downtime migration
-To change the structure of a table, I follow 2 rules:
+To minimize downtime, I adhere to a strict two-phase schema evolution strategy:
 1. No delete column
 2. Always add new column at the end
 
 With 2 rules, I can avoid crashing the application and if you want to revert instantly, you can drop this column easily.
-To make the scripts idempotent, I use flyway rule. I will create a table name "pyflyway_schema_history" to follow the version of the database. And I also use prefix "V__" for the versioned script and "R__" for the repeatable script.
+I utilize Flyway to manage migration versioning, ensuring idempotency and deterministic state transitions. I will create a table name "pyflyway_schema_history" to follow the version of the database. And I also use prefix "V__" for the versioned script and "R__" for the repeatable script.
 
 Step for addition column:
 - step 1: add nullable column [migrate](docs/V1__add_new_column.sql) | [rollback](docs/V1.1__rollback_add_new_column.sql)
@@ -125,3 +128,12 @@ LIMIT 50;
 |Lock Contention|Active Waiting Queries: <br> Queries blocked waiting for a lock.|0 queries waiting > 500ms for row-level locks on accounts or transactions.|Critical: > 10 queries in active state with wait_event_type = 'Lock' for > 2 seconds.|Because you use SELECT FOR UPDATE, one slow transaction (e.g., a delayed webhook) holds the lock and causes a massive domino-effect queue behind it.|
 |Settlement Lag|Pending Queue Age: <br> Time transactions spend in the PENDING state.|- 99% internal transfers settle < 1s. <br> - 99% external gateways settle < 5 mins.|Warning: > 50 transactions stuck as PENDING for > 15 mins. <br> Critical: Sum of SUSPENSE account balance does not equal total PENDING transaction amounts.|Measures business health. The DB infra might be green, but if background workers crash, funds are "frozen." Imbalances indicate severe double-entry ledger violations.|
 |Capacity|Disk Space, Connection Pool, TXID Age: <br> Core infrastructure limits.|- Disk < 75% <br> - Connections < 80% <br> - TXID Age < 1 Billion|Warning: datfrozenxid > 1.2 Billion (Wraparound risk). <br> Critical: Active Connections > 90% for > 2 mins.|Prevents complete outages. Maxed connections drop API calls instantly. Maxed TXIDs force PostgreSQL to shut down completely to prevent data corruption.|
+
+## 6) Design write-up (ADR)
+
+**1. Data Modelling** <br>
+Double-Entry Integrity: We reject the "simple balance update" pattern. Every value movement is recorded as an immutable ledger_line. We maintain a strict invariant: $\sum_{entry \in Transaction} amount = 0$.Idempotency as a First-Class Citizen: Every request must be keyed by an idempotency_key enforced at the database constraint level. This prevents race conditions and duplicate processing, which is non-negotiable in financial services.Design-Led Schema: Our schema is normalized to 3NF to prevent anomalies. We utilize PostgreSQL’s PARTITION BY RANGE to manage the lifecycle of 50M+ rows, ensuring high-performance query execution via partition pruning.<br>
+**2. Consistency vs. Availability Trade-offs**<br>
+Operational Layer (Strong Consistency): The core transactions and ledger are optimized for ACID compliance. We use SELECT FOR UPDATE to lock balance rows during atomic operations, ensuring that the system never allows an overdraft or race condition during high-concurrency periods.Reporting Layer (Eventual Consistency): To protect the OLTP performance, we decouple reporting via Change Data Capture (CDC). Reporting queries are routed to an OLAP engine (ClickHouse), accepting sub-second latency in exchange for massive scalability and complex analytical throughput.<br>
+**3. Evolutionary Data Contracts (The "Safe-Migration" Doctrine)**<br>
+We treat our database schema as a public API. To support zero-downtime evolution:Expand-Contract Migration: No destructive operations (e.g., DROP COLUMN) are permitted. Changes follow the cycle: Add (NULL) $\rightarrow$ Backfill $\rightarrow$ Constraint (NOT VALID) $\rightarrow$ Validate $\rightarrow$ Set NOT NULL.Consumer Protection: We utilize a Schema Registry and contract testing (Pact). Downstream microservices must be validated against schema snapshots before any deployment that alters the transactions table.Idempotent DDL: Every migration script is idempotent (using IF NOT EXISTS or standard Flyway versioning), ensuring that partial failures in CI/CD pipelines do not leave the database in an inconsistent state.
