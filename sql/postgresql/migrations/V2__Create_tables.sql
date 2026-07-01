@@ -18,8 +18,8 @@ CREATE TABLE operation.idempotency_keys (
     response_payload JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     expires_at TIMESTAMPTZ NOT NULL,
-    PRIMARY KEY (key_value, created_at)
-)
+    PRIMARY KEY (key_value)
+);
 
 ---------------------------------------------------------
 -- 3. TRANSACTIONS

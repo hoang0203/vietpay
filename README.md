@@ -1,53 +1,64 @@
 # Enterprise Database Architect — Fintech
 ## 1) Relational core model
-I do some researches and combine with your context, and decide that my database should have 4 tables:
--accounts: include account information
--idempotency_keys: include idempotency_keys and lifespan
--transactions: contain trasaction status
--ledger_lines: contain cashflow of account for each transaction
+Based on the provided context, I have designed the database with four primary tables:
+
+**-accounts:** Stores account metadata and balances.
+**-idempotency_keys:** Stores idempotency keys and their lifespan to prevent duplicate processing.
+**-transactions:** Records the overall status and intent of a payment or transfer.
+**-ledger_lines:** Contains the double-entry cash flow records for each transaction.
 
 For more information use this [link](sql/postgresql/manual/V2__Create_tables.sql)
 
 For ER you can use this [link](docs/ER_mermaid.js) or copy the code and paste to https://mermaid.ai/live 
 
 **How the ledger always balances**
-As my knowledge, the "double-entry ledger" means the transaction must has 2 or more accounts and the total amounts of all accounts must be 0. It means balance.
 
-So I think the transactions in the banking belong to 1 of 2 types below:
-- Non-Business transaction: transfer low money between 2 accounts in a same bank
-- Business transaction: transfer money from bank A to bank B, QA code scan, biometric authentication, OTP...
+In a double-entry ledger, a transaction must involve two or more accounts, and the total sum of amounts for these accounts must always equal exactly zero.
+
+I have categorized banking transactions into two types:
+
+**1.Internal Transfers:** Moving funds between two accounts within the same bank.
+
+**2.Complex/External Transfers:** Involving external banks, QR code payments, biometric authentication, or third-party services.
 
 For the first type, 2 accounts can transfer money to each other, and no need middle account. But for the second type, they need a middle account, I call it "SUSPENSE" (system account). The first account will deposit money to the "SUSPENSE". Then after the businness action was done, the "SUSPENSE" will release the money to the second account.
 
-For example:
-case 1: transfer low money between 2 accounts in a same bank
-- step 1: generate new idempotent key in the idempotency_keys table
-- step 2: insert new record to the transactions tale with SETTLED status
-- step 3: insert 2 new record in the ledger_lines table, one has positive amount and vice versa. In some cases, there is transfer fee too, and I call it "SYSTEM_FEES" account.
+So all inserts to transactions and ledger_lines happen within a single ACID Database Transaction (BEGIN; ... COMMIT;) and a database trigger explicitly checks that SUM(amount) = 0 for the given transaction_id before executing the COMMIT.
 
-case 2: transfer too much money between 2 accounts in a same bank, or book grab service, or deposit money to an application
-- step 1: generate new idempotent key in the idempotency_keys table
-- step 2: insert new record to the transactions table with PENDING status
-- step 3: insert 2 new record in the ledger_lines table, nagative amount for the A account and positive amount for the "SUSPENSE" account. I mean your money was block at that time
-- step 4: after you finish the needed business action, for example: input right OTP, biometric authentication, or grab driver press the finish button..., the money will be released to the B account from the "SUSPENSE" account or the other bank "SUSPENSE" account.
-- step 4.1: if 2 accounts were in a same bank, insert at least 2 records into ledger_lines table, negative for the "SUSPENSE" account and positive for the B account
-- step 4.2: other cases, no need to insert any row
-- step 5: update the transaction' statys in the transactions table to SETTLED
+### Example Scenarios:
+### Case 1: Simple internal transfer
 
-about the FAILED transaction:
-In the case 1, I assume the application will check the available of the A and B accounts, such as: account status, current balance, So if one of them is not available, so no new record in any table.
+**- Step 1:** Generate a new idempotency key in the idempotency_keys table.
 
-In the case 2, If something was wrong, in step 4, the system should insert 2 new records into the ledger_lines table, negative for the "SUSPENSE" account and positive for the A account. And then update the transaction status is FAILED at the transactions table
+**- Step 2:** Insert a new record into the transactions table with a SETTLED status.
+
+**- Step 3:** Insert two new records into the ledger_lines table (one negative, one positive). If a transfer fee applies, a third line is added for the SYSTEM_FEES account.
+
+### Case 2: Complex transfer (e.g., booking a ride, external deposit)
+
+**- Step 1:** Generate a new idempotency key.
+
+**- Step 2:** Insert a new record into the transactions table with a PENDING status.
+
+**- Step 3:** Insert two records into ledger_lines: a negative amount for the sender's account and a positive amount for the SUSPENSE account (locking the funds).
+
+**- Step 4:** After the required business action is completed (e.g., OTP verified, driver finishes the ride), the funds are released. We insert at least two more records into ledger_lines: negative for the SUSPENSE account and positive for the receiver.
+
+**- Step 5:** Update the status in the transactions table to SETTLED.
+
+**Handling Failed Transactions:**
+
+If a transaction fails during a complex transfer, the system inserts two new records into ledger_lines to reverse the hold (negative for SUSPENSE, positive for the sender) and updates the transaction status to FAILED.
 
 **How a duplicate request cannot post twice**
-We have an unique idempotent key in step 2, if the key was existed, it will return current status to the request
+
+We require a unique idempotency key for incoming requests. If the key already exists, the database rejects the insert, and the application returns the cached status of the original request.
 
 **Indexing strategy**
 
 For more information use this [link](sql/postgresql/manual/V3__Create_partition_index.sql)
 
 for the 2 first indexes, I will use it for the reporting query.
-
 For the last index, It will help me to get balance of an account at a specific time
 
 ## 2) Query & performance
