@@ -110,34 +110,11 @@ LIMIT 50;
 ```
 ## 5) Observability
 
-|Category|Metric|SLO|Alerts|Reason|
-| :--- | :--- | :--- | :--- | :--- |
-|Latency|p99||||
-|Throughput|TPS|> 99.9%|> 10 concurrent queries in active state with wait_event_type = 'Lock' for > 2 seconds.|Because your design uses SELECT FOR UPDATE to prevent race conditions on account balances, a single slow transaction will cause a massive queue of blocked transactions behind it|
-|Replication Lag|Replication Delay|p99 Lag < 50ms|Lag > 500ms for 3 minutes (Warning) / Lag > 5 seconds for 1 minute (Critical)|If read-replicas fall behind, the application might query a user's balance and see outdated data, potentially allowing them to overspend if your routing logic sends balance checks to replicas instead of the primary|
-|Lock Contention|Active Waiting Queries|0 queries waiting > 500ms for row-level locks on accounts or transactions|||
-|Settlement Lag|Pending Queue Age: The business time delta between created_at and updated_at for transactions moving from PENDING to SETTLED or FAILED|99% of internal transfers settled < 1s.
-99% of external gateways resolved < SLA (e.g., 5 mins).|||
-|Capacity|Disk Space, Connection Pool, & TXID Age: Storage utilization, active/idle PgBouncer connections, and Transaction ID consumption|Disk < 75%, Connections < 80%, TXID Age < 1 Billion (to prevent wraparound)|||
-
 |Category|Metric to Track|SLO (Target Commitment)|Alerts & Thresholds|Reason & Business Impact|
 | :--- | :--- | :--- | :--- | :--- |
-|Latency|"p50, p95, p99 Query Duration:Measured separately for Read/Write queries."|p99 Write < 50ms
-p99 Read < 10ms|Warning: p99 Write > 100ms for 5 mins.
-Critical: > 250ms for 3 mins.|Slow DB responses cause upstream API timeouts. This is usually caused by disk I/O bottlenecks or write-penalties on indexes as tables grow.|
-|Throughput|TPS (Transactions Per Second):
-Rate of Commit vs. Rollback.|> 99.9% commit success rate.|Critical: TPS drops by > 50% compared to the normal baseline for > 2 minutes.|"A sudden drop in TPS (rather than a spike) is a major red flag. It indicates the app cannot reach the DB, connection pools are exhausted, or the system is deadlocked."|
-|Replication Lag|Replication Delay:
-Byte/Time gap between Primary and Replicas.|p99 Lag < 50ms|Warning: Lag > 500ms for 3 mins.
-Critical: Lag > 5s for 1 min.|"If read-replicas fall behind, balance checks might return outdated (pre-deduction) data, potentially allowing users to overspend past their actual balance."|
-|Lock Contention|Active Waiting Queries:
-Queries blocked waiting for a lock.|0 queries waiting > 500ms for row-level locks on accounts or transactions.|Critical: > 10 queries in active state with wait_event_type = 'Lock' for > 2 seconds.|"Because you use SELECT FOR UPDATE, one slow transaction (e.g., a delayed webhook) holds the lock and causes a massive domino-effect queue behind it."|
-|Settlement Lag|Pending Queue Age:
-Time transactions spend in the PENDING state.|- 99% internal transfers settle < 1s.
-- 99% external gateways settle < 5 mins.|Warning: > 50 transactions stuck as PENDING for > 15 mins.
-Critical: Sum of SUSPENSE account balance does not equal total PENDING transaction amounts.|"Measures business health. The DB infra might be green, but if background workers crash, funds are ""frozen."" Imbalances indicate severe double-entry ledger violations."|
-|Capacity|"Disk Space, Connection Pool, TXID Age:
-Core infrastructure limits."|- Disk < 75%
-- Connections < 80%
-- TXID Age < 1 Billion|Warning: datfrozenxid > 1.2 Billion (Wraparound risk).
-Critical: Active Connections > 90% for > 2 mins.|Prevents complete outages. Maxed connections drop API calls instantly. Maxed TXIDs force PostgreSQL to shut down completely to prevent data corruption.|
+|Latency|"p50, p95, p99 Query Duration:Measured separately for Read/Write queries."|p99 Write < 50ms <br> p99 Read < 10ms|Warning: p99 Write > 100ms for 5 mins. Critical: > 250ms for 3 mins.|Slow DB responses cause upstream API timeouts. This is usually caused by disk I/O bottlenecks or write-penalties on indexes as tables grow.|
+|Throughput|TPS (Transactions Per Second): <br> Rate of Commit vs. Rollback.|> 99.9% commit success rate.|Critical: TPS drops by > 50% compared to the normal baseline for > 2 minutes.|"A sudden drop in TPS (rather than a spike) is a major red flag. It indicates the app cannot reach the DB, connection pools are exhausted, or the system is deadlocked."|
+|Replication Lag|Replication Delay: <br> Byte/Time gap between Primary and Replicas.|p99 Lag < 50ms|Warning: Lag > 500ms for 3 mins. <br> Critical: Lag > 5s for 1 min.|"If read-replicas fall behind, balance checks might return outdated (pre-deduction) data, potentially allowing users to overspend past their actual balance."|
+|Lock Contention|Active Waiting Queries: <br> Queries blocked waiting for a lock.|0 queries waiting > 500ms for row-level locks on accounts or transactions.|Critical: > 10 queries in active state with wait_event_type = 'Lock' for > 2 seconds.|"Because you use SELECT FOR UPDATE, one slow transaction (e.g., a delayed webhook) holds the lock and causes a massive domino-effect queue behind it."|
+|Settlement Lag|Pending Queue Age: <br> Time transactions spend in the PENDING state.|- 99% internal transfers settle < 1s. <br> - 99% external gateways settle < 5 mins.|Warning: > 50 transactions stuck as PENDING for > 15 mins. <br> Critical: Sum of SUSPENSE account balance does not equal total PENDING transaction amounts.|"Measures business health. The DB infra might be green, but if background workers crash, funds are ""frozen."" Imbalances indicate severe double-entry ledger violations."|
+|Capacity|"Disk Space, Connection Pool, TXID Age: <br> Core infrastructure limits."|- Disk < 75% <br> - Connections < 80% <br> - TXID Age < 1 Billion|Warning: datfrozenxid > 1.2 Billion (Wraparound risk). <br> Critical: Active Connections > 90% for > 2 mins.|Prevents complete outages. Maxed connections drop API calls instantly. Maxed TXIDs force PostgreSQL to shut down completely to prevent data corruption.|
