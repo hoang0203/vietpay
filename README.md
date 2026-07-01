@@ -6,9 +6,9 @@ I do some researches and combine with your context, and decide that my database 
 -transactions: contain trasaction status
 -ledger_lines: contain cashflow of account for each transaction
 
-[For more information use this link:](sql/postgresql/manual/V2__Create_tables.sql)
+For more information use this [link](sql/postgresql/manual/V2__Create_tables.sql)
 
-[For ER you can use this link or copy the code and paste to https://mermaid.ai/live](docs/ER_mermaid.js) 
+For ER you can use this [link](docs/ER_mermaid.js) or copy the code and paste to https://mermaid.ai/live 
 
 **How the ledger always balances**
 As my knowledge, the "double-entry ledger" means the transaction must has 2 or more accounts and the total amounts of all accounts must be 0. It means balance.
@@ -44,7 +44,7 @@ We have an unique idempotent key in step 2, if the key was existed, it will retu
 
 **Indexing strategy**
 
-[For more information use this link:](sql/postgresql/manual/V3__Create_partition_index.sql)
+For more information use this [link](sql/postgresql/manual/V3__Create_partition_index.sql)
 
 for the 2 first indexes, I will use it for the reporting query.
 
@@ -69,7 +69,7 @@ So to overcome it, I scrutinize our context and realize some issues:
 So that, I recommend we decouple reporting and opration activities, using clickhouse for the reporting.
 So this is my design:
 
-[you can see hear or copy the code and paste to https://mermaid.ai/live](docs/new_design_mermaid.js)
+you can see [hear](docs/new_design_mermaid.js) or copy the code and paste to https://mermaid.ai/live
 
 ## 3) Zero-downtime migration
 To change the structure of a table, I follow 2 rules:
