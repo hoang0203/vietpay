@@ -75,10 +75,10 @@ With 2 rules, I can avoid crashing the application and if you want to revert ins
 To make the scripts idempotent, I use flyway rule. I will create a table name "pyflyway_schema_history" to follow the version of the database. And I also use prefix "V__" for the versioned script and "R__" for the repeatable script.
 
 Step for addition column:
-- step 1: add nullable column [migrate](docs\V1__add_new_column.sql)[rollback](docs\V1.1__rollback_add_new_column.sql)
+- step 1: add nullable column [migrate](docs\V1__add_new_column.sql)|[rollback](docs\V1.1__rollback_add_new_column.sql)
 - step 2: start dual-write window
-- step 3: backfill data[migrate](docs\V2__backfill_data.sql)[rollback](docs\V2.1__rollback_backfill_data.sql)
-- step 4: promote constraint[migrate](docs\V3__promote_constraint.sql)[rollback](docs\V3.1__rollback_promote_constraint.sql)
+- step 3: backfill data[migrate](docs\V2__backfill_data.sql)|[rollback](docs\V2.1__rollback_backfill_data.sql)
+- step 4: promote constraint[migrate](docs\V3__promote_constraint.sql)|[rollback](docs\V3.1__rollback_promote_constraint.sql)
 
 ## 4) Polyglot modelling
 **- MongoDB:** For example, we got 2 more than weather apis, they are json data but different structure. We've got specific data but maybe we want use more data in the json in the future. So we decide to keep the json data in JSONB column to easily explore in the future.
@@ -92,7 +92,7 @@ In this case, the graph DB has 2 things:
 Nodes: (:User), (:Device), (:Card), (:IPAddress)
 Relationships: [:LOGGED_IN_FROM], [:USED_CARD], [:TRANSFERRED_TO]
 
-Cypher query 1: detect sharing IP
+**Cypher query 1**: detect sharing IP
 ```
 MATCH (u:User)-[r:LOGGED_IN_FROM]->(d:Device)
 WHERE r.timestamp >= datetime().truncoToWeek()
@@ -102,7 +102,7 @@ RETURN d.device_id, user_count, users
 ORDER BY user_count DESC;
 ```
 
-Cypher query 2: detect suspicious accounts that shared card or device with fraud account
+**Cypher query 2**: detect suspicious accounts that shared card or device with fraud account
 ```
 MATCH (bad_user:User {is_fraud: true})-[:LOGGED_IN_FROM|USED_CARD*1..2]-(shared_entity)-[:LOGGED_IN_FROM|USED_CARD*1..2]-(suspect_user:User {is_fraud: false})
 RETURN DISTINCT suspect_user.user_id, suspect_user.email, shared_entity.id
@@ -112,9 +112,9 @@ LIMIT 50;
 
 |Category|Metric to Track|SLO (Target Commitment)|Alerts & Thresholds|Reason & Business Impact|
 | :--- | :--- | :--- | :--- | :--- |
-|Latency|"p50, p95, p99 Query Duration:Measured separately for Read/Write queries."|p99 Write < 50ms <br> p99 Read < 10ms|Warning: p99 Write > 100ms for 5 mins. Critical: > 250ms for 3 mins.|Slow DB responses cause upstream API timeouts. This is usually caused by disk I/O bottlenecks or write-penalties on indexes as tables grow.|
-|Throughput|TPS (Transactions Per Second): <br> Rate of Commit vs. Rollback.|> 99.9% commit success rate.|Critical: TPS drops by > 50% compared to the normal baseline for > 2 minutes.|"A sudden drop in TPS (rather than a spike) is a major red flag. It indicates the app cannot reach the DB, connection pools are exhausted, or the system is deadlocked."|
-|Replication Lag|Replication Delay: <br> Byte/Time gap between Primary and Replicas.|p99 Lag < 50ms|Warning: Lag > 500ms for 3 mins. <br> Critical: Lag > 5s for 1 min.|"If read-replicas fall behind, balance checks might return outdated (pre-deduction) data, potentially allowing users to overspend past their actual balance."|
-|Lock Contention|Active Waiting Queries: <br> Queries blocked waiting for a lock.|0 queries waiting > 500ms for row-level locks on accounts or transactions.|Critical: > 10 queries in active state with wait_event_type = 'Lock' for > 2 seconds.|"Because you use SELECT FOR UPDATE, one slow transaction (e.g., a delayed webhook) holds the lock and causes a massive domino-effect queue behind it."|
-|Settlement Lag|Pending Queue Age: <br> Time transactions spend in the PENDING state.|- 99% internal transfers settle < 1s. <br> - 99% external gateways settle < 5 mins.|Warning: > 50 transactions stuck as PENDING for > 15 mins. <br> Critical: Sum of SUSPENSE account balance does not equal total PENDING transaction amounts.|"Measures business health. The DB infra might be green, but if background workers crash, funds are ""frozen."" Imbalances indicate severe double-entry ledger violations."|
-|Capacity|"Disk Space, Connection Pool, TXID Age: <br> Core infrastructure limits."|- Disk < 75% <br> - Connections < 80% <br> - TXID Age < 1 Billion|Warning: datfrozenxid > 1.2 Billion (Wraparound risk). <br> Critical: Active Connections > 90% for > 2 mins.|Prevents complete outages. Maxed connections drop API calls instantly. Maxed TXIDs force PostgreSQL to shut down completely to prevent data corruption.|
+|Latency|p50, p95, p99 Query Duration:Measured separately for Read/Write queries.|p99 Write < 50ms <br> p99 Read < 10ms|Warning: p99 Write > 100ms for 5 mins. Critical: > 250ms for 3 mins.|Slow DB responses cause upstream API timeouts. This is usually caused by disk I/O bottlenecks or write-penalties on indexes as tables grow.|
+|Throughput|TPS (Transactions Per Second): <br> Rate of Commit vs. Rollback.|> 99.9% commit success rate.|Critical: TPS drops by > 50% compared to the normal baseline for > 2 minutes.|A sudden drop in TPS (rather than a spike) is a major red flag. It indicates the app cannot reach the DB, connection pools are exhausted, or the system is deadlocked.|
+|Replication Lag|Replication Delay: <br> Byte/Time gap between Primary and Replicas.|p99 Lag < 50ms|Warning: Lag > 500ms for 3 mins. <br> Critical: Lag > 5s for 1 min.|If read-replicas fall behind, balance checks might return outdated (pre-deduction) data, potentially allowing users to overspend past their actual balance.|
+|Lock Contention|Active Waiting Queries: <br> Queries blocked waiting for a lock.|0 queries waiting > 500ms for row-level locks on accounts or transactions.|Critical: > 10 queries in active state with wait_event_type = 'Lock' for > 2 seconds.|Because you use SELECT FOR UPDATE, one slow transaction (e.g., a delayed webhook) holds the lock and causes a massive domino-effect queue behind it.|
+|Settlement Lag|Pending Queue Age: <br> Time transactions spend in the PENDING state.|- 99% internal transfers settle < 1s. <br> - 99% external gateways settle < 5 mins.|Warning: > 50 transactions stuck as PENDING for > 15 mins. <br> Critical: Sum of SUSPENSE account balance does not equal total PENDING transaction amounts.|Measures business health. The DB infra might be green, but if background workers crash, funds are "frozen." Imbalances indicate severe double-entry ledger violations.|
+|Capacity|Disk Space, Connection Pool, TXID Age: <br> Core infrastructure limits.|- Disk < 75% <br> - Connections < 80% <br> - TXID Age < 1 Billion|Warning: datfrozenxid > 1.2 Billion (Wraparound risk). <br> Critical: Active Connections > 90% for > 2 mins.|Prevents complete outages. Maxed connections drop API calls instantly. Maxed TXIDs force PostgreSQL to shut down completely to prevent data corruption.|
