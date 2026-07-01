@@ -2,10 +2,10 @@
 ## 1) Relational core model
 Based on the provided context, I have designed the database with four primary tables:
 
-**-accounts:** Stores account metadata and balances.
-**-idempotency_keys:** Stores idempotency keys and their lifespan to prevent duplicate processing.
-**-transactions:** Records the overall status and intent of a payment or transfer.
-**-ledger_lines:** Contains the double-entry cash flow records for each transaction.
+**-accounts:** Stores account metadata and balances.<br>
+**-idempotency_keys:** Stores idempotency keys and their lifespan to prevent duplicate processing.<br>
+**-transactions:** Records the overall status and intent of a payment or transfer.<br>
+**-ledger_lines:** Contains the double-entry cash flow records for each transaction.<br>
 
 For more information use this [link](sql/postgresql/manual/V2__Create_tables.sql)
 
