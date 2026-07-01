@@ -5,6 +5,7 @@ I do some researches and combine with your context, and decide that my database 
 -idempotency_keys: include idempotency_keys and lifespan
 -transactions: contain trasaction status
 -ledger_lines: contain cashflow of account for each transaction
+
 [For more information use this link:](sql/postgresql/manual/V2__Create_tables.sql)
 
 [For ER you can use this link or copy the code and paste to https://mermaid.ai/live](docs/ER_mermaid.js) 
@@ -42,7 +43,9 @@ In the case 2, If something was wrong, in step 4, the system should insert 2 new
 We have an unique idempotent key in step 2, if the key was existed, it will return current status to the request
 
 **Indexing strategy**
+
 [For more information use this link:](sql/postgresql/manual/V3__Create_partition_index.sql)
+
 for the 2 first indexes, I will use it for the reporting query.
 
 For the last index, It will help me to get balance of an account at a specific time
@@ -65,6 +68,7 @@ So to overcome it, I scrutinize our context and realize some issues:
 
 So that, I recommend we decouple reporting and opration activities, using clickhouse for the reporting.
 So this is my design:
+
 [you can see hear or copy the code and paste to https://mermaid.ai/live](docs/new_design_mermaid.js)
 
 ## 3) Zero-downtime migration
@@ -90,6 +94,7 @@ So we may get 2 problems:
 **- Neo4j:** for example, we want to detect a Fraud-Ring, if you use postgresql to figure out which account or device or IP that involves to the fraud, you must be use a lot of joinning and recursive CTE. If it has too many accounts, devices or/and IP, your postgresql may be overheaded. So that why a graph DB is suitable for this case.
 
 In this case, the graph DB has 2 things:
+
 Nodes: (:User), (:Device), (:Card), (:IPAddress)
 
 Relationships: [:LOGGED_IN_FROM], [:USED_CARD], [:TRANSFERRED_TO]
