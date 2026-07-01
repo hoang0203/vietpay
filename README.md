@@ -11,14 +11,12 @@ For more information use this [link](sql/postgresql/manual/V2__Create_tables.sql
 
 For ER you can use this [link](docs/ER_mermaid.js) or copy the code and paste to https://mermaid.ai/live 
 
-**How the ledger always balances**
-
+**How the ledger always balances**<br>
 In a double-entry ledger, a transaction must involve two or more accounts, and the total sum of amounts for these accounts must always equal exactly zero.
 
 I have categorized banking transactions into two types:
 
-**1.Internal Transfers:** Moving funds between two accounts within the same bank.
-
+**1.Internal Transfers:** Moving funds between two accounts within the same bank.<br>
 **2.Complex/External Transfers:** Involving external banks, QR code payments, biometric authentication, or third-party services.
 
 For the first type, 2 accounts can transfer money to each other, and no need middle account. But for the second type, they need a middle account, I call it "SUSPENSE" (system account). The first account will deposit money to the "SUSPENSE". Then after the businness action was done, the "SUSPENSE" will release the money to the second account.
@@ -28,34 +26,25 @@ So all inserts to transactions and ledger_lines happen within a single ACID Data
 ### Example Scenarios:
 ### Case 1: Simple internal transfer
 
-**- Step 1:** Generate a new idempotency key in the idempotency_keys table.
-
-**- Step 2:** Insert a new record into the transactions table with a SETTLED status.
-
+**- Step 1:** Generate a new idempotency key in the idempotency_keys table.<br>
+**- Step 2:** Insert a new record into the transactions table with a SETTLED status.<br>
 **- Step 3:** Insert two new records into the ledger_lines table (one negative, one positive). If a transfer fee applies, a third line is added for the SYSTEM_FEES account.
 
 ### Case 2: Complex transfer (e.g., booking a ride, external deposit)
 
-**- Step 1:** Generate a new idempotency key.
+**- Step 1:** Generate a new idempotency key.<br>
+**- Step 2:** Insert a new record into the transactions table with a PENDING status.<br>
+**- Step 3:** Insert two records into ledger_lines: a negative amount for the sender's account and a positive amount for the SUSPENSE account (locking the funds).<br>
+**- Step 4:** After the required business action is completed (e.g., OTP verified, driver finishes the ride), the funds are released. We insert at least two more records into ledger_lines: negative for the SUSPENSE account and positive for the receiver.<br>
+**- Step 5:** Update the status in the transactions table to SETTLED.<br>
 
-**- Step 2:** Insert a new record into the transactions table with a PENDING status.
-
-**- Step 3:** Insert two records into ledger_lines: a negative amount for the sender's account and a positive amount for the SUSPENSE account (locking the funds).
-
-**- Step 4:** After the required business action is completed (e.g., OTP verified, driver finishes the ride), the funds are released. We insert at least two more records into ledger_lines: negative for the SUSPENSE account and positive for the receiver.
-
-**- Step 5:** Update the status in the transactions table to SETTLED.
-
-**Handling Failed Transactions:**
-
+**Handling Failed Transactions:**<br>
 If a transaction fails during a complex transfer, the system inserts two new records into ledger_lines to reverse the hold (negative for SUSPENSE, positive for the sender) and updates the transaction status to FAILED.
 
-**How a duplicate request cannot post twice**
-
+**How a duplicate request cannot post twice**<br>
 We require a unique idempotency key for incoming requests. If the key already exists, the database rejects the insert, and the application returns the cached status of the original request.
 
-**Indexing strategy**
-
+**Indexing strategy**<br>
 For more information use this [link](sql/postgresql/manual/V3__Create_partition_index.sql)
 
 for the 2 first indexes, I will use it for the reporting query.
