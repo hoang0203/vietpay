@@ -5,8 +5,8 @@ I do some researches and combine with your context, and decide that my database 
 -idempotency_keys: include idempotency_keys and lifespan
 -transactions: contain trasaction status
 -ledger_lines: contain cashflow of account for each transaction
-[For more information use this link:](sql\postgresql\manual\V2__Create_tables.sql)
-[For ER you can use this link or copy the code and paste to https://mermaid.ai/live](docs\ER_mermaid.js) 
+[For more information use this link:](sql/postgresql/manual/V2__Create_tables.sql)
+[For ER you can use this link or copy the code and paste to https://mermaid.ai/live](docs/ER_mermaid.js) 
 
 **How the ledger always balances**
 As my knowledge, the "double-entry ledger" means the transaction must has 2 or more accounts and the total amounts of all accounts must be 0. It means balance.
@@ -41,7 +41,7 @@ In the case 2, If something was wrong, in step 4, the system should insert 2 new
 We have an unique idempotent key in step 2, if the key was existed, it will return current status to the request
 
 **Indexing strategy**
-[For more information use this link:](sql\postgresql\manual\V3__Create_partition_index.sql)
+[For more information use this link:](sql/postgresql/manual/V3__Create_partition_index.sql)
 for the 2 first indexes, I will use it for the reporting query.
 
 For the last index, It will help me to get balance of an account at a specific time
@@ -64,7 +64,7 @@ So to overcome it, I scrutinize our context and realize some issues:
 
 So that, I recommend we decouple reporting and opration activities, using clickhouse for the reporting.
 So this is my design:
-[you can see hear or copy the code and paste to https://mermaid.ai/live](docs\new_design_mermaid.js)
+[you can see hear or copy the code and paste to https://mermaid.ai/live](docs/new_design_mermaid.js)
 
 ## 3) Zero-downtime migration
 To change the structure of a table, I follow 2 rules:
@@ -75,10 +75,10 @@ With 2 rules, I can avoid crashing the application and if you want to revert ins
 To make the scripts idempotent, I use flyway rule. I will create a table name "pyflyway_schema_history" to follow the version of the database. And I also use prefix "V__" for the versioned script and "R__" for the repeatable script.
 
 Step for addition column:
-- step 1: add nullable column [migrate](docs\V1__add_new_column.sql)|[rollback](docs\V1.1__rollback_add_new_column.sql)
+- step 1: add nullable column [migrate](docs/V1__add_new_column.sql) | [rollback](docs/V1.1__rollback_add_new_column.sql)
 - step 2: start dual-write window
-- step 3: backfill data[migrate](docs\V2__backfill_data.sql)|[rollback](docs\V2.1__rollback_backfill_data.sql)
-- step 4: promote constraint[migrate](docs\V3__promote_constraint.sql)|[rollback](docs\V3.1__rollback_promote_constraint.sql)
+- step 3: backfill data [migrate](docs/V2__backfill_data.sql) | [rollback](docs/V2.1__rollback_backfill_data.sql)
+- step 4: promote constraint [migrate](docs/V3__promote_constraint.sql) | [rollback](docs/V3.1__rollback_promote_constraint.sql)
 
 ## 4) Polyglot modelling
 **- MongoDB:** For example, we got 2 more than weather apis, they are json data but different structure. We've got specific data but maybe we want use more data in the json in the future. So we decide to keep the json data in JSONB column to easily explore in the future.
