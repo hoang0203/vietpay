@@ -6,6 +6,7 @@ I do some researches and combine with your context, and decide that my database 
 -transactions: contain trasaction status
 -ledger_lines: contain cashflow of account for each transaction
 [For more information use this link:](sql/postgresql/manual/V2__Create_tables.sql)
+
 [For ER you can use this link or copy the code and paste to https://mermaid.ai/live](docs/ER_mermaid.js) 
 
 **How the ledger always balances**
@@ -90,6 +91,7 @@ So we may get 2 problems:
 
 In this case, the graph DB has 2 things:
 Nodes: (:User), (:Device), (:Card), (:IPAddress)
+
 Relationships: [:LOGGED_IN_FROM], [:USED_CARD], [:TRANSFERRED_TO]
 
 **Cypher query 1**: detect sharing IP
