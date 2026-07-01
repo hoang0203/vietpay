@@ -83,10 +83,10 @@ With 2 rules, I can avoid crashing the application and if you want to revert ins
 I utilize Flyway to manage migration versioning, ensuring idempotency and deterministic state transitions. I will create a table name "pyflyway_schema_history" to follow the version of the database. And I also use prefix "V__" for the versioned script and "R__" for the repeatable script.
 
 Step for addition column:
-- step 1: add nullable column [migrate](docs/V1__add_new_column.sql) | [rollback](docs/V1.1__rollback_add_new_column.sql)
-- step 2: start dual-write window
-- step 3: backfill data [migrate](docs/V2__backfill_data.sql) | [rollback](docs/V2.1__rollback_backfill_data.sql)
-- step 4: promote constraint [migrate](docs/V3__promote_constraint.sql) | [rollback](docs/V3.1__rollback_promote_constraint.sql)
+- Step 1: add nullable column [migrate](docs/V1__add_new_column.sql) | [rollback](docs/V1.1__rollback_add_new_column.sql)
+- Step 2: start dual-write window
+- Step 3: backfill data [migrate](docs/V2__backfill_data.sql) | [rollback](docs/V2.1__rollback_backfill_data.sql)
+- Step 4: promote constraint [migrate](docs/V3__promote_constraint.sql) | [rollback](docs/V3.1__rollback_promote_constraint.sql)
 
 ## 4) Polyglot modelling
 **- MongoDB:** For example, we got 2 more than weather apis, they are json data but different structure. We've got specific data but maybe we want use more data in the json in the future. So we decide to keep the json data in JSONB column to easily explore in the future.
@@ -96,11 +96,9 @@ So we may get 2 problems:
 
 **- Neo4j:** for example, we want to detect a Fraud-Ring, if you use postgresql to figure out which account or device or IP that involves to the fraud, you must be use a lot of joinning and recursive CTE. If it has too many accounts, devices or/and IP, your postgresql may be overheaded. So that why a graph DB is suitable for this case.
 
-In this case, the graph DB has 2 things:
-
-Nodes: (:User), (:Device), (:Card), (:IPAddress)
-
-Relationships: [:LOGGED_IN_FROM], [:USED_CARD], [:TRANSFERRED_TO]
+In this case, the graph DB has 2 things:<br>
+Nodes: (:User), (:Device), (:Card), (:IPAddress)<br>
+Relationships: [:LOGGED_IN_FROM], [:USED_CARD], [:TRANSFERRED_TO]<br>
 
 **Cypher query 1**: detect sharing IP
 ```
@@ -138,7 +136,7 @@ LIMIT 50;
 **2. Consistency vs. Availability Trade-offs**<br>
 **- Operational Layer (Strong Consistency):** The core transactions and ledger are optimized for ACID compliance. We use SELECT FOR UPDATE to lock balance rows during atomic operations, ensuring that the system never allows an overdraft or race condition during high-concurrency periods.<br>
 **- Reporting Layer (Eventual Consistency):** To protect the OLTP performance, we decouple reporting via Change Data Capture (CDC). Reporting queries are routed to an OLAP engine (ClickHouse), accepting sub-second latency in exchange for massive scalability and complex analytical throughput.<br>
-**3. Evolutionary Data Contracts (The "Safe-Migration" Doctrine)**<br>
+**3. Evolutionary Data Contracts**<br>
 We treat our database schema as a public API. To support zero-downtime evolution:<br>
 **- Expand-Contract Migration:** No destructive operations (e.g., DROP COLUMN) are permitted. Changes follow the cycle: Add (NULL) $\rightarrow$ Backfill $\rightarrow$ Constraint (NOT VALID) $\rightarrow$ Validate $\rightarrow$ Set NOT NULL.<br>
 **- Consumer Protection:** We utilize a Schema Registry and contract testing (Pact). Downstream microservices must be validated against schema snapshots before any deployment that alters the transactions table.<br>
