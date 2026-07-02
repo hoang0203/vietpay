@@ -1,4 +1,4 @@
-CREATE TABLE reporting.ledger_lines
+CREATE TABLE ledger_lines
 (
     id UUID,
     transaction_id UUID,
@@ -12,7 +12,7 @@ PARTITION BY toYYYYMM(created_at)
 ORDER BY (created_at, transaction_id)
 SETTINGS index_granularity = 8192;
 
-CREATE TABLE reporting.transactions_settled
+CREATE TABLE transactions_settled
 (
     id UUID,
     status String,

@@ -77,14 +77,13 @@ services:
       - CLICKHOUSE_USER=${CLICKHOUSE_USER} 
       - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
       - CLICKHOUSE_DB=${CLICKHOUSE_DB}
-    depends_on:
-      - minio
     ulimits:
       nofile:
         soft: 262144
         hard: 262144
     volumes:
-      - ./data/clickhouse:/var/lib/clickhouse
+      - clickhouse_data:/var/lib/clickhouse
+      - ./sql/clickhouse/manual/init.sql:/docker-entrypoint-initdb.d/my-database-schema.sql
       - ./monitoring/prometheus_config.xml:/etc/clickhouse-server/config.d/prometheus_config.xml
   prometheus:
     image: prom/prometheus:latest
@@ -107,6 +106,7 @@ services:
     depends_on:
       - prometheus
   spark-processor:
+
     build: .
     container_name: spark_streaming_app
     ports:
@@ -128,3 +128,6 @@ services:
       - ./entrypoint.sh:/app/entrypoint.sh
       - ./email_worker.py:/app/email_worker.py
       - ./data/email:/app/data/email
+
+volumes:
+  clickhouse_data:

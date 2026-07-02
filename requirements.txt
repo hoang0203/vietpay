@@ -4,3 +4,5 @@ kafka-python
 uuid6
 confluent-kafka
 delta-spark==3.2.0
+psycopg2-binary
+clickhouse-driver
