@@ -1,0 +1,6 @@
+vietpay_pending_transactions:
+  query: "SELECT count(*) as stuck_count FROM operation.transactions WHERE status = 'PENDING' AND created_at < NOW() - INTERVAL '15 minutes';"
+  metrics:
+    - stuck_count:
+        usage: "GAUGE"
+        description: "Number of transactions stuck in PENDING state for more than 15 mins"

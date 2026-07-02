@@ -1,4 +1,4 @@
-CREATE VIEW v_reporting_settled AS
+CREATE OR REPLACE VIEW v_reporting_settled AS
 SELECT 
     ll.transaction_id,
     ll.account_id,

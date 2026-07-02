@@ -18,7 +18,10 @@ services:
     ports:
       - "9187:9187"
     environment:
-      DATA_SOURCE_NAME: "postgresql://${POSTGRES_USERNAME}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB_NAME}?sslmode=disable"
+      PG_EXPORTER_EXTEND_QUERY_PATH: "/custom-queries.yaml"
+      DATA_SOURCE_NAME: "host=postgres port=5432 user=${POSTGRES_USERNAME} password=${POSTGRES_PASSWORD} dbname=${POSTGRES_DB_NAME} sslmode=disable"
+    volumes:
+      - ./monitoring/queries.yaml:/custom-queries.yaml
     depends_on:
       - postgres
   zookeeper:
@@ -41,7 +44,7 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_MAP_INTERFACE_NAMES: "FALSE"
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:29092,EXTERNAL://0.0.0.0:9092
       KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://localhost:9092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
@@ -66,6 +69,7 @@ services:
       - CONFIG_STORAGE_REPLICATION_FACTOR=1
       - OFFSET_STORAGE_REPLICATION_FACTOR=1
       - STATUS_STORAGE_REPLICATION_FACTOR=1
+
   clickhouse:
     image: clickhouse/clickhouse-server:24.1
     container_name: clickhouse_warehouse
@@ -122,12 +126,13 @@ services:
       - PYTHONUNBUFFERED=1
     volumes:
       - ./.env:/app/.env
-      - ./register_connector.py:/app/register_connector.py
-      - ./streaming.py:/app/streaming.py
-      - ./create_topic.py:/app/create_topic.py
       - ./entrypoint.sh:/app/entrypoint.sh
-      - ./email_worker.py:/app/email_worker.py
-      - ./data/email:/app/data/email
+      - ./services/register_connector.py:/app/register_connector.py
+      - ./services/create_topic.py:/app/create_topic.py
+      - ./services/streaming_ledger.py:/app/streaming_ledger.py
+      - ./services/streaming_transactions.py:/app/streaming_transactions.py
+      - ./data/checkpoints/ledger_lines:/tmp/checkpoints/ledger_lines
+      - ./data/checkpoints/transactions_settled:/tmp/checkpoints/transactions_settled
 
 volumes:
   clickhouse_data:

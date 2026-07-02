@@ -141,3 +141,70 @@ We treat our database schema as a public API. To support zero-downtime evolution
 **- Expand-Contract Migration:** No destructive operations (e.g., DROP COLUMN) are permitted. Changes follow the cycle: Add (NULL) $\rightarrow$ Backfill $\rightarrow$ Constraint (NOT VALID) $\rightarrow$ Validate $\rightarrow$ Set NOT NULL.<br>
 **- Consumer Protection:** We utilize a Schema Registry and contract testing (Pact). Downstream microservices must be validated against schema snapshots before any deployment that alters the transactions table.<br>
 **- Idempotent DDL:** Every migration script is idempotent (using IF NOT EXISTS or standard Flyway versioning), ensuring that partial failures in CI/CD pipelines do not leave the database in an inconsistent state.
+
+## Preparation
+### 1. Folder Directory Setup
+Run the following command in your terminal at the project root directory to initialize data volumes for Docker. This ensures data persistence when containers are stopped or removed:
+```
+mkdir -p data/email \
+         data/kafka \
+         data/checkpoints/ledger_lines \
+         data/checkpoints/transactions_settled \
+         data/postgres \
+         data/zookeeper/data \
+         data/zookeeper/log
+```
+### 2. Environment Variables Configuration (.env)
+Create a file named .env in the root directory of your project and populate it with the following configurations (replace the values indicated by <-- with your actual information):
+
+
+--- PostgreSQL Configuration ---
+
+POSTGRES_DB_NAME=your_database_name <-- Database name
+
+POSTGRES_USERNAME=your_user_name     <-- Database user
+
+POSTGRES_PASSWORD=your_password     <-- Database password
+
+--- Kafka & Debezium Configuration (Optional for easier management) ---
+
+KAFKA_BOOTSTRAP_SERVER=localhost:9092
+
+DEBEZIUM_API_URL=http://localhost:8083/connectors
+
+--- ClickHouse Configuration ---
+
+CLICKHOUSE_USER=your_clickhouse_user         <-- ClickHouse username
+
+CLICKHOUSE_PASSWORD=your_clickhouse_password <-- ClickHouse password
+
+CLICKHOUSE_DB=your_analytics_db_name         <-- ClickHouse database name
+
+## Setup & Deployment (Step-by-Step)
+
+### Step 1: Setup PostgreSQL & Migration
+#### 1.Start the source database service:
+
+`docker-compose up -d --build postgres`
+
+#### 2.Run the migration script to automatically initialize database schemas and seed initial mock data:
+
+`python migrate.py`
+
+### Step 2: Run the Entire System
+Once the source databases (PostgreSQL, clickhouse) are up and configured, start all remaining system services (Kafka, Debezium, Spark, Prometheus, Grafana...):
+
+`docker-compose up -d --build`
+
+## 📊 Monitoring & Observability (Observer)
+Once all containers are successfully running (Up), you can monitor the data pipeline and system health through the following user interfaces:
+|Service	|Functional Description	|Access URL (Localhost)|
+| :--- | :--- | :--- |
+|PySpark UI	|Track execution, health, and performance of streaming jobs	|http://localhost:4040/|
+|Kafka UI	|Monitor topics, inspect real-time messages, and manage consumers	|http://localhost:8080/|
+|Grafana	|Centralized dashboard for infrastructure and system metrics	|http://localhost:3000/|
+|Prometheus Check	|Inspect connection endpoints health status	|http://localhost:9090/targets|
+
+**⚠️ Critical Notice**
+
+Before running docker-compose up, kindly verify and ensure that the required ports (4040, 8080, 9000, 9001, 3000, 9090, 5432, 8123) are completely available (free) and not occupied or blocked by any other background processes or local services running on your machine.
