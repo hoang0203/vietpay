@@ -146,13 +146,7 @@ We treat our database schema as a public API. To support zero-downtime evolution
 ### 1. Folder Directory Setup
 Run the following command in your terminal at the project root directory to initialize data volumes for Docker. This ensures data persistence when containers are stopped or removed:
 ```
-mkdir -p data/email \
-         data/kafka \
-         data/checkpoints/ledger_lines \
-         data/checkpoints/transactions_settled \
-         data/postgres \
-         data/zookeeper/data \
-         data/zookeeper/log
+mkdir data/email, data/kafka, data/checkpoints/ledger_lines, data/checkpoints/transactions_settled, data/postgres, data/zookeeper/data, data/zookeeper/log
 ```
 ### 2. Environment Variables Configuration (.env)
 Create a file named .env in the root directory of your project and populate it with the following configurations (replace the values indicated by <-- with your actual information):
