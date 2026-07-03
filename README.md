@@ -160,7 +160,7 @@ Create a file named .env in the root directory of your project and populate it w
 
 --- PostgreSQL Configuration ---
 
-POSTGRES_DB_NAME=your_database_name <-- Database name
+POSTGRES_DB_NAME=vietpay
 
 POSTGRES_USERNAME=your_user_name     <-- Database user
 
@@ -178,16 +178,22 @@ CLICKHOUSE_USER=your_clickhouse_user         <-- ClickHouse username
 
 CLICKHOUSE_PASSWORD=your_clickhouse_password <-- ClickHouse password
 
-CLICKHOUSE_DB=your_analytics_db_name         <-- ClickHouse database name
+CLICKHOUSE_DB=vietpay
 
 ## Setup & Deployment (Step-by-Step)
 
 ### Step 1: Setup PostgreSQL & Migration
-#### 1.Start the source database service:
+#### 1.Install required libraries
 
-`docker-compose up -d --build postgres`
+`pip install -r requirements.txt`
 
-#### 2.Run the migration script to automatically initialize database schemas and seed initial mock data:
+#### 2.Start the source database service:
+
+`docker-compose up -d --build postgres clickhouse`
+
+#### 3.Run initial script in clickhouse [link] (sql/clickhouse/manual/init.sql)
+
+#### 4.Run the migration script to automatically initialize database schemas and seed initial mock data:
 
 `python migrate.py`
 
