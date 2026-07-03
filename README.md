@@ -191,7 +191,8 @@ CLICKHOUSE_DB=vietpay
 
 `docker-compose up -d --build postgres clickhouse`
 
-#### 3.Run initial script in clickhouse [link] (sql/clickhouse/manual/init.sql)
+#### 3.Run initial script in clickhouse 
+Manually run this script [link] (sql/clickhouse/manual/init.sql)
 
 #### 4.Run the migration script to automatically initialize database schemas and seed initial mock data:
 
