@@ -212,8 +212,8 @@ Before running docker-compose up, kindly verify and ensure that the required por
 
 If you faced this error: "exec ./entrypoint.sh: no such file or directory" in the spark-processor service. Kindly try this solution:
 
-Open your entrypoint.sh file in VS Code.
-Look at the very bottom-right corner of the VS Code window (the blue status bar).
-You will likely see the text CRLF. Click on it.
-A menu will drop down at the top of the screen. Select LF.
+Open your entrypoint.sh file in VS Code.<br>
+Look at the very bottom-right corner of the VS Code window (the blue status bar).<br>
+You will likely see the text CRLF. Click on it.<br>
+A menu will drop down at the top of the screen. Select LF.<br>
 Save the file (Ctrl + S).
