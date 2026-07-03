@@ -209,3 +209,11 @@ Once all containers are successfully running (Up), you can monitor the data pipe
 **⚠️ Critical Notice**
 
 Before running docker-compose up, kindly verify and ensure that the required ports (4040, 8080, 9000, 9001, 3000, 9090, 5432, 8123) are completely available (free) and not occupied or blocked by any other background processes or local services running on your machine.
+
+If you faced this error: "exec ./entrypoint.sh: no such file or directory" in the spark-processor service. Kindly try this solution:
+
+Open your entrypoint.sh file in VS Code.
+Look at the very bottom-right corner of the VS Code window (the blue status bar).
+You will likely see the text CRLF. Click on it.
+A menu will drop down at the top of the screen. Select LF.
+Save the file (Ctrl + S).
